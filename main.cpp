@@ -8,6 +8,7 @@
 #include <ctime>
 #include <chrono>
 #include <cmath>
+#include <stack>
 
 #define M_PI 3.14159265358979323846
 using namespace std;
@@ -392,7 +393,7 @@ void threadedNearestNeighbor(vector<state> &resultNearest, vector<state> partial
 	resultNearest = nearestNeighbors(partialGraph, randState, 1);
 }
 
-void generateRRT(vector<obstacle> obstacles, state initial, state target) {
+vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, state target) {
 	vector<vector<state>> graph;
 	vector<state> col;
 	col.push_back(initial);
@@ -465,7 +466,7 @@ void generateRRT(vector<obstacle> obstacles, state initial, state target) {
 				}
 
 				bool found = false;
-				for (int k = 1; k < graph.at(verticeIndex).size(); k++) {
+				for (int k = 0; k < graph.at(verticeIndex).size(); k++) {
 					if (graph.at(verticeIndex).at(k).x == resultTrajectory.at(j+1).finalState.x && graph.at(verticeIndex).at(k).y == resultTrajectory.at(j+1).finalState.y && graph.at(verticeIndex).at(k).theta == resultTrajectory.at(j+1).finalState.theta) {
 						found = true;
 						break;
@@ -530,55 +531,6 @@ void generateRRT(vector<obstacle> obstacles, state initial, state target) {
 		t2 = high_resolution_clock::now();
 		time_span = duration_cast<duration<double>>(t2 - t1);
 		std::cout << "Time to execute adding new node: " << time_span.count() << " seconds" << "\n";
-		/*if (collided == false) {
-			t1 = high_resolution_clock::now();
-			for (int j = 0; j < graph.size(); j++) {
-				if (graph.at(j).at(0).x == near.x && graph.at(j).at(0).y == near.y && graph.at(j).at(0).theta == near.theta) {
-					graph.at(j).push_back(randState);
-					break;
-				}
-			}
-			vector<state> newCol;
-			newCol.push_back(randState);
-			chosenStates.push_back(randState);
-			graph.push_back(newCol);
-
-			t2 = high_resolution_clock::now();
-			time_span = duration_cast<duration<double>>(t2 - t1);
-			std::cout << "Time to execute adding new node randState: " << time_span.count() << " seconds" << "\n";
-
-			t1 = high_resolution_clock::now();
-			resultTrajectory = generateTrajectory(randState, target);
-			collided = false;
-			for (int j = 0; j < resultTrajectory.size() - 1; j++) {
-				collided = collisionCheck(obstacles, resultTrajectory.at(j).finalState, resultTrajectory.at(j + 1).finalState);
-				if (collided == true) {
-					break;
-				}
-			}
-
-			t2 = high_resolution_clock::now();
-			time_span = duration_cast<duration<double>>(t2 - t1);
-			std::cout << "Time to execute trajectory finalState: " << time_span.count() << " seconds" << "\n";
-
-			if (collided == false) {
-				t1 = high_resolution_clock::now();
-				for (int j = 0; j < graph.size(); j++) {
-					if (graph.at(j).at(0).x == randState.x && graph.at(j).at(0).y == randState.y && graph.at(j).at(0).theta == randState.theta) {
-						graph.at(j).push_back(target);
-						break;
-					}
-				}
-				vector<state> randToTarget;
-				randToTarget.push_back(target);
-				graph.push_back(randToTarget);
-
-				t2 = high_resolution_clock::now();
-				time_span = duration_cast<duration<double>>(t2 - t1);
-				std::cout << "Time to execute adding new node finalState: " << time_span.count() << " seconds" << "\n";
-				break;
-			}
-		}*/
 		std::cout << "NUMBER OF NODES IN GRAPH: " << count << " " << graph.size() << "\n";
 		count++;
 		if (linked == true) {
@@ -587,14 +539,79 @@ void generateRRT(vector<obstacle> obstacles, state initial, state target) {
 	}
 
 	for (int i = 0; i < graph.size(); i++) {
-		if (graph.at(i).size() > 1 || (graph.at(i).at(0).x == target.x && graph.at(i).at(0).y == target.y && graph.at(i).at(0).theta == target.theta)) {
+		//if (graph.at(i).size() > 1 || (graph.at(i).at(0).x == target.x && graph.at(i).at(0).y == target.y && graph.at(i).at(0).theta == target.theta)) {
 			std::cout << "NODE: " << "(" << graph.at(i).at(0).x << "," << graph.at(i).at(0).y << "," << graph.at(i).at(0).theta << ")" << "->";
 			for (int j = 0; j < graph.at(i).size(); j++) {
 				std::cout << "(" << graph.at(i).at(j).x << "," << graph.at(i).at(j).y << "," << graph.at(i).at(j).theta << ")" << "|";
 			}
 			std::cout << "\n";
+		//}
+	}
+	std::cout << "\n";
+	return graph;
+}
+
+void recursionHelper(vector<vector<state>> graph, stack<state> &path, vector<state> &visited, state target) {
+
+	while (path.empty() == false && (path.top().x != target.x || path.top().y != target.y || path.top().theta != target.theta)) {
+		state topElement = path.top();
+		for (int i = 0; i < graph.size(); i++) {
+			if (graph.at(i).at(0).x == topElement.x && graph.at(i).at(0).y == topElement.y && graph.at(i).at(0).theta == topElement.theta) {
+				for (int j = 0; j < graph.at(i).size()-1; j++) {
+					if (graph.at(i).size() == 1) {
+						if (path.top().x != target.x && path.top().y != target.y && path.top().theta != target.theta) {
+							path.pop();
+						}
+						return;
+					}
+					else {
+						bool isVisited = false;
+						state nodeToAdd = graph.at(i).at(j+1);
+						
+						for (int k = 0; k < visited.size(); k++) {
+							if (visited.at(k).x == nodeToAdd.x && visited.at(k).y == nodeToAdd.y && visited.at(k).theta == nodeToAdd.theta) {
+								isVisited = true;
+								break;
+							}
+						}
+
+						if (isVisited == false) {
+							path.push(nodeToAdd);
+							visited.push_back(nodeToAdd);
+							recursionHelper(graph, path, visited, target);
+							
+						}
+					}
+				}
+				if (path.top().x != target.x && path.top().y != target.y && path.top().theta != target.theta) {
+					path.pop();
+				}
+			}
 		}
 	}
+}
+
+void findPath(vector<vector<state>> graph, state initial, state target) {
+	stack<state> pathInvert;
+	pathInvert.push(initial);
+	vector<state> visited;
+	visited.push_back(initial);
+
+	stack<state> pathAnswer;
+	recursionHelper(graph, pathInvert, visited, target);
+
+	while (pathInvert.empty() == false) {
+		pathAnswer.push(pathInvert.top());
+		pathInvert.pop();
+	}
+	while (pathAnswer.empty() == false) {
+		cout << "(" << pathAnswer.top().x << "," << pathAnswer.top().y << "," << pathAnswer.top().theta << ")";
+		pathAnswer.pop();
+		if (pathAnswer.empty() == false) {
+			cout << "->";
+		}
+	}
+	cout << "\n";
 }
 
 int main(int argc, char** argv) {
@@ -679,5 +696,7 @@ int main(int argc, char** argv) {
 	}
 	cout << "\n";
 
-	generateRRT(obstacles, initial, target);
+	vector<vector<state>> graph = generateRRT(obstacles, initial, target);
+	cout << "Running graph search: " << "\n";
+	findPath(graph, initial, target);
 }
