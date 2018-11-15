@@ -646,8 +646,8 @@ int main(int argc, char** argv) {
 		cout << resultNearest.at(i).x << " " << resultNearest.at(i).y << "\n";
 	}
 	cout << "\n";
-	target.x = 95;
-	target.y = 65;
+	target.x = 90;
+	target.y = 90;
 	target.theta = M_PI/3;
 
 	initial.x = 0.1;
@@ -663,23 +663,23 @@ int main(int argc, char** argv) {
 	}
 	cout << "\n";
 	obstacle obs;
-	obs.aX = 10;
+	obs.aX = 20;
 	obs.aY = 0;
-	obs.dX = 90;
-	obs.dY = 10;
-	obs.type = 0;
-	obstacles.push_back(obs);
-
-	obs.aX = 10;
-	obs.aY = 30;
-	obs.dX = 90;
+	obs.dX = 40;
 	obs.dY = 40;
 	obs.type = 0;
 	obstacles.push_back(obs);
 
-	obs.aX = 10;
+	obs.aX = 20;
 	obs.aY = 60;
-	obs.dX = 90;
+	obs.dX = 40;
+	obs.dY = 100;
+	obs.type = 0;
+	obstacles.push_back(obs);
+
+	obs.aX = 60;
+	obs.aY = 30;
+	obs.dX = 80;
 	obs.dY = 70;
 	obs.type = 0;
 	obstacles.push_back(obs);
