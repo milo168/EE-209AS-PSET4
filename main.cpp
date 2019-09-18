@@ -39,6 +39,7 @@ bool compareValues(tuple<state, double> i, tuple<state, double> j) {
 	return get<1>(i) < get<1>(j);
 }
 
+//Find nearest node in the graph
 vector<state> nearestNeighbors(vector<state> V, state target, int limit) {
 	vector<state> answer;
 	vector<tuple<state,double>> distanceValue;
@@ -57,6 +58,7 @@ vector<state> nearestNeighbors(vector<state> V, state target, int limit) {
 	return answer;
 }
 
+//Generate trajectory from initial state to final state
 vector<trajectory> generateTrajectory(state initial, state target) {
 	vector<trajectory> answer;
 	trajectory value;
@@ -180,6 +182,7 @@ vector<trajectory> generateTrajectory(state initial, state target) {
 	return answer;
 }
 
+//Helper function since our program has a specific way of doing collision checking
 void normalizeCoordinate(state initial, state target, state &newInitial, state &newTarget) {
 	if (initial.x <= target.x && initial.y <= target.y) {
 		newInitial.x = initial.x;
@@ -322,14 +325,15 @@ bool collisionCheck(vector<obstacle> obstacles, state initial, state target) {
 			normalizeCoordinate(initial, target, newInitial, newTarget);
 			double eps = 1e5;
 			
-			cout << "INITIAL STUFF: " << initial.x << " " << initial.y << " " << target.x << " " << target.y << "\n";
+			/*cout << "INITIAL STUFF: " << initial.x << " " << initial.y << " " << target.x << " " << target.y << "\n";
 			cout << "NORMALIZED: " << newInitial.x << " " << newInitial.y << " " << newTarget.x << " " << newTarget.y << "\n";
 			cout << "OBSTACLES: " << obstacles.at(i).aX << " " << obstacles.at(i).aY << " " << obstacles.at(i).dX << " " << obstacles.at(i).dY << "\n";
 			cout << x1 << " " << y1 << " CHECK1" << "\n";
 			cout << x2 << " " << y2 << " CHECK2" << "\n";
 			cout << x3 << " " << y3 << " CHECK3" << "\n";
-			cout << x4 << " " << y4 << " CHECK4" << "\n\n";
+			cout << x4 << " " << y4 << " CHECK4" << "\n\n";*/
 
+			//if the intersection point lies within these boundaries it collides
 			if ((int)(x1*eps) >= (int)(obstacles.at(i).aX*eps) && (int)(x1*eps) <= (int)(obstacles.at(i).dX*eps) && (int)(y1*eps) >= (int)(obstacles.at(i).aY*eps) && (int)(y1*eps) <= (int)(obstacles.at(i).dY*eps) &&
 				(int)(x1*eps) >= (int)(newInitial.x*eps) && (int)(x1*eps) <= (int)(newTarget.x*eps) && (int)(y1*eps) >= (int)(newInitial.y*eps) && (int)(y1*eps) <= (int)(newTarget.y*eps)) {
 				return true;
@@ -359,47 +363,14 @@ bool collisionCheck(vector<obstacle> obstacles, state initial, state target) {
 	return false;
 }
 
-state generateRandomState(obstacle mapBoundary, vector<state> chosen) {
+//Get a random state from the map
+state generateRandomState(vector<obstacle> obstacles, vector<state> chosen) {
 
 	random_device rd; 
 	mt19937 gen1(rd());
 	mt19937 gen2(rd());
 	mt19937 gen3(rd());
 	state randState;
-
-	uniform_real_distribution<double> xRand(mapBoundary.aX, mapBoundary.dX);
-	uniform_real_distribution<double> yRand(mapBoundary.aY, mapBoundary.dY);
-	uniform_real_distribution<double> thetaRand(0, 2*M_PI);
-
-	randState.x =  xRand(gen1);
-	randState.y = yRand(gen2);
-	randState.theta = thetaRand(gen3);
-
-	std::cout << "RANDOM STATE: " << randState.x << " " << randState.y << " " << randState.theta << "\n";
-
-	for (int i = 0; i < chosen.size(); i++) {
-		if (abs(randState.x - chosen.at(i).x) < 0.00001 && abs(randState.y - chosen.at(i).y) < 0.00001 && abs(randState.theta - chosen.at(i).theta) < 0.00001) {
-			randState.x = xRand(gen1);
-			randState.y = yRand(gen2);
-			randState.theta = thetaRand(gen3);
-			i = -1;
-		}
-	}
-	return randState;
-}
-
-void threadedNearestNeighbor(vector<state> &resultNearest, vector<state> partialGraph, state randState) {
-
-	resultNearest = nearestNeighbors(partialGraph, randState, 1);
-}
-
-vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, state target) {
-	vector<vector<state>> graph;
-	vector<state> col;
-	col.push_back(initial);
-	graph.push_back(col);
-
-	const int ITERATIONS = 1000;
 
 	obstacle mapBoundary;
 	for (int i = 0; i < obstacles.size(); i++) {
@@ -408,26 +379,77 @@ vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, sta
 			break;
 		}
 	}
+	uniform_real_distribution<double> xRand(mapBoundary.aX, mapBoundary.dX);
+	uniform_real_distribution<double> yRand(mapBoundary.aY, mapBoundary.dY);
+	uniform_real_distribution<double> thetaRand(0, 2*M_PI);
+
+	randState.x = xRand(gen1);
+	randState.y = yRand(gen2);
+	randState.theta = thetaRand(gen3);
+
+	//std::cout << "RANDOM STATE: " << randState.x << " " << randState.y << " " << randState.theta << "\n";
+	bool failed = true;
+
+	while (failed == true) {
+		for (int i = 0; i < chosen.size(); i++) {
+			if (abs(randState.x - chosen.at(i).x) < 0.00001 && abs(randState.y - chosen.at(i).y) < 0.00001 && abs(randState.theta - chosen.at(i).theta) < 0.00001) {
+				randState.x = xRand(gen1);
+				randState.y = yRand(gen2);
+				randState.theta = thetaRand(gen3);
+				i = -1;
+			}
+		}
+
+		bool failCheck = true;
+		for (int i = 0; i < obstacles.size(); i++) {
+			if (randState.x >= obstacles.at(i).aX && randState.y >= obstacles.at(i).aY && randState.x <= obstacles.at(i).dX && randState.y <= obstacles.at(i).dY && obstacles.at(i).type == 0) {
+				randState.x = xRand(gen1);
+				randState.y = yRand(gen2);
+				randState.theta = thetaRand(gen3);
+				i = -1;
+				failCheck = false;
+			}
+		}
+		if (failCheck == true) {
+			failed = false;
+		}
+	}
+
+	return randState;
+}
+
+//functor for the multithread
+void threadedNearestNeighbor(vector<state> &resultNearest, vector<state> partialGraph, state randState) {
+
+	resultNearest = nearestNeighbors(partialGraph, randState, 1);
+}
+
+//generate RRT
+vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, state target) {
+	vector<vector<state>> graph;
+	vector<state> col;
+	col.push_back(initial);
+	graph.push_back(col);
+
+	//Max limit
+	const int ITERATIONS = 1000;
 
 	vector<state> chosenStates;
 	chosenStates.push_back(initial);
 	chosenStates.push_back(target);
 	int count = 0;
 	while(true && count < ITERATIONS) {
-		state randState = generateRandomState(mapBoundary, chosenStates);
+		state randState = generateRandomState(obstacles, chosenStates);
 		vector<state> candidates;
 		vector<state>* resultNearest = new vector<state>[graph.size()];
 		thread* run = new thread[graph.size()];
 
-		high_resolution_clock::time_point t1;
-		high_resolution_clock::time_point t2; 
-		duration<double> time_span; 
-
-		t1 = high_resolution_clock::now();
+		//find nearest neighbor for the random state
 		for (int k = 0; k < graph.size(); k++) {
 			run[k] = thread(threadedNearestNeighbor,std::ref(resultNearest[k]), graph.at(k), randState);
 		}
 
+		//put the results together
 		for (int k = 0; k < graph.size(); k++) {
 			run[k].join();
 			candidates.push_back(resultNearest[k].at(0));
@@ -436,27 +458,23 @@ vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, sta
 		delete[] resultNearest;
 		delete[] run;
 
-		/*for (int k = 0; k < graph.size(); k++) {
-			vector<state> resultNearest = nearestNeighbors(graph.at(k), randState, 1);
-			candidates.push_back(resultNearest.at(0));
-		}*/
-
+		//pick the nearest from the results
 		vector<state> nearest = nearestNeighbors(candidates, randState, 1);
 		state near = nearest.at(0);
-		t2 = high_resolution_clock::now();
-		time_span = duration_cast<duration<double>>(t2 - t1);
-		std::cout << "Time to execute nearest neighbor: " << time_span.count() << " seconds" << "\n";
 
-		t1 = high_resolution_clock::now();
+		//get trajectory from the nearest node in graph to the random state
 		vector<trajectory> resultTrajectory = generateTrajectory(near, randState);
 		bool collided = false;
 		bool addedOnce = false;
 		for (int j = 0; j < resultTrajectory.size() - 1; j++) {
+			//check collision
 			collided = collisionCheck(obstacles, resultTrajectory.at(j).finalState, resultTrajectory.at(j + 1).finalState);
 			if (collided == true) {
 				break;
 			}
 			else {
+				//if no collision in the trajectory, add that state from the trajectory path to the graph
+				//the trajectory returns 5 states
 				int verticeIndex;
 				for (int k = 0; k < graph.size(); k++) {
 					if (graph.at(k).at(0).x == resultTrajectory.at(j).finalState.x && graph.at(k).at(0).y == resultTrajectory.at(j).finalState.y && graph.at(k).at(0).theta == resultTrajectory.at(j).finalState.theta) {
@@ -465,6 +483,7 @@ vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, sta
 					}
 				}
 
+				//if one of the 5 states are already in the graph dont add it
 				bool found = false;
 				for (int k = 0; k < graph.at(verticeIndex).size(); k++) {
 					if (graph.at(verticeIndex).at(k).x == resultTrajectory.at(j+1).finalState.x && graph.at(verticeIndex).at(k).y == resultTrajectory.at(j+1).finalState.y && graph.at(verticeIndex).at(k).theta == resultTrajectory.at(j+1).finalState.theta) {
@@ -484,6 +503,8 @@ vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, sta
 			}
 		}
 
+		//if all the points from the trajectory were added, check if it can reach the final state
+		//if there is a path without disruption then return the graph
 		bool linked = false;
 		if (collided == false) {
 
@@ -527,17 +548,15 @@ vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, sta
 
 			}
 		}
-
-		t2 = high_resolution_clock::now();
-		time_span = duration_cast<duration<double>>(t2 - t1);
-		std::cout << "Time to execute adding new node: " << time_span.count() << " seconds" << "\n";
-		std::cout << "NUMBER OF NODES IN GRAPH: " << count << " " << graph.size() << "\n";
+		
 		count++;
 		if (linked == true) {
 			break;
 		}
 	}
-
+	
+	//print debug
+	std::cout << "NUMBER OF NODES IN GRAPH: " << count << " " << graph.size() << "\n";
 	for (int i = 0; i < graph.size(); i++) {
 		//if (graph.at(i).size() > 1 || (graph.at(i).at(0).x == target.x && graph.at(i).at(0).y == target.y && graph.at(i).at(0).theta == target.theta)) {
 			std::cout << "NODE: " << "(" << graph.at(i).at(0).x << "," << graph.at(i).at(0).y << "," << graph.at(i).at(0).theta << ")" << "->";
@@ -551,8 +570,11 @@ vector<vector<state>> generateRRT(vector<obstacle> obstacles, state initial, sta
 	return graph;
 }
 
+//tree traversal
 void recursionHelper(vector<vector<state>> graph, stack<state> &path, vector<state> &visited, state target) {
 
+	//break out if all the nodes have been visited or if the target state has been reached
+	//this is DFS algorithm
 	while (path.empty() == false && (path.top().x != target.x || path.top().y != target.y || path.top().theta != target.theta)) {
 		state topElement = path.top();
 		for (int i = 0; i < graph.size(); i++) {
@@ -591,6 +613,7 @@ void recursionHelper(vector<vector<state>> graph, stack<state> &path, vector<sta
 	}
 }
 
+//find the path
 void findPath(vector<vector<state>> graph, state initial, state target) {
 	stack<state> pathInvert;
 	pathInvert.push(initial);
@@ -621,7 +644,7 @@ int main(int argc, char** argv) {
 	state initial;
 	state temp;
 
-	target.x = 1;
+	/*target.x = 1;
 	target.y = 1;
 	
 	temp.x = 1;
@@ -645,58 +668,102 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < resultNearest.size(); i++) {
 		cout << resultNearest.at(i).x << " " << resultNearest.at(i).y << "\n";
 	}
-	cout << "\n";
-	target.x = 90;
-	target.y = 90;
+	cout << "\n";*/
+	target.x = 83;
+	target.y = 7;
 	target.theta = M_PI/3;
 
-	initial.x = 0.1;
-	initial.y = 1;
+	initial.x = 50;
+	initial.y = 35;
 	initial.theta = 3 * M_PI / 2;
 	
-	vector<trajectory> resultTrajectory = generateTrajectory(initial, target);
+	/*vector<trajectory> resultTrajectory = generateTrajectory(initial, target);
 	cout << "Get Trajectory: " << "\n";
 	for (int i = 0; i < resultTrajectory.size(); i++) {
 		cout << resultTrajectory.at(i).finalState.x << " " << resultTrajectory.at(i).finalState.y << " "
 			<< resultTrajectory.at(i).inputWheelLeft << " " << resultTrajectory.at(i).inputWheelRight << " "
 			<< resultTrajectory.at(i).time << "\n";
 	}
-	cout << "\n";
+	cout << "\n";*/
 	obstacle obs;
-	obs.aX = 20;
+	obs.aX = 10;
 	obs.aY = 0;
-	obs.dX = 40;
-	obs.dY = 40;
+	obs.dX = 90;
+	obs.dY = 5;
 	obs.type = 0;
 	obstacles.push_back(obs);
 
-	obs.aX = 20;
-	obs.aY = 60;
-	obs.dX = 40;
-	obs.dY = 100;
-	obs.type = 0;
-	obstacles.push_back(obs);
-
-	obs.aX = 60;
-	obs.aY = 30;
+	obs.aX = 10;
+	obs.aY = 5;
 	obs.dX = 80;
-	obs.dY = 70;
+	obs.dY = 10;
+	obs.type = 0;
+	obstacles.push_back(obs);
+
+	obs.aX = 85;
+	obs.aY = 5;
+	obs.dX = 90;
+	obs.dY = 10;
+	obs.type = 0;
+	obstacles.push_back(obs);
+
+	obs.aX = 10;
+	obs.aY = 20;
+	obs.dX = 90;
+	obs.dY = 30;
+	obs.type = 0;
+	obstacles.push_back(obs);
+
+	obs.aX = 10;
+	obs.aY = 40;
+	obs.dX = 90;
+	obs.dY = 50;
 	obs.type = 0;
 	obstacles.push_back(obs);
 
 	obs.aX = 0;
 	obs.aY = 0;
 	obs.dX = 100;
-	obs.dY = 100;
+	obs.dY = 50;
 	obs.type = 1;
 	obstacles.push_back(obs);
-	cout << "Collision Detection: " << "\n";
+	/*cout << "Collision Detection: " << "\n";
 	for(int i = 0; i < resultTrajectory.size()-1; i++){
 		cout << resultTrajectory.at(i).finalState.x << " " << resultTrajectory.at(i).finalState.y << " " << collisionCheck(obstacles, resultTrajectory.at(i).finalState, resultTrajectory.at(i + 1).finalState) << "\n";
 	}
+	cout << "\n";*/
+
+	cout << "INITIAL: " << "\n";
+	cout << initial.x << " " << initial.y << " " << initial.theta << "\n";
+
+	cout << "TARGET: " << "\n";
+	cout << target.x << " " << target.y << " " << target.theta << "\n";
+
+	cout << "OBSTACLES: " << "\n";
+	for (int i = 0; i < obstacles.size(); i++) {
+		if (i == obstacles.size() - 1) {
+			cout << "MAP SIZE: ";
+		}
+		cout << "((" << obstacles.at(i).aX << "," << obstacles.at(i).aY << ")(" << obstacles.at(i).dX << "," << obstacles.at(i).dY << "))" << "\n";
+	}
 	cout << "\n";
 
+	high_resolution_clock::time_point t1;
+	high_resolution_clock::time_point t2; 
+	duration<double> time_span; 
+
+	cout << "Generate RRT: " << "\n";
+	t1 = high_resolution_clock::now();
 	vector<vector<state>> graph = generateRRT(obstacles, initial, target);
+
+	t2 = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(t2 - t1);
+	std::cout << "Time to execute RRT: " << time_span.count() << " seconds" << "\n";
+
 	cout << "Running graph search: " << "\n";
+	t1 = high_resolution_clock::now();
 	findPath(graph, initial, target);
+	t2 = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(t2 - t1);
+	std::cout << "Time to execute DFS: " << time_span.count() << " seconds" << "\n";
 }
